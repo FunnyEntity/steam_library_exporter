@@ -1,0 +1,6 @@
+# settings.toml — 默认设置（可提交到 git）
+# 用户修改的个性化设置保存在 .env 中，会覆盖此处的默认值
+
+[defaults]
+theme = "clam"
+language = "zh"

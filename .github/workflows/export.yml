@@ -1,0 +1,71 @@
+name: Export Steam Library
+
+on:
+  workflow_dispatch:
+    inputs:
+      format:
+        description: Export format
+        default: csv
+        type: choice
+        options:
+          - csv
+          - json
+          - sqlite
+      limit:
+        description: Game limit (0 = all)
+        default: "0"
+        type: string
+      sort:
+        description: Sort field
+        default: playtime
+        type: choice
+        options:
+          - playtime
+          - playtime_2weeks
+          - name
+          - appid
+          - metacritic
+          - reviews
+          - price
+          - release_date
+          - owners
+      min_playtime:
+        description: Min playtime in hours (0 = include all)
+        default: "0"
+        type: string
+      no_steamspy:
+        description: Skip SteamSpy data (faster)
+        default: false
+        type: boolean
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run export
+        env:
+          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+          STEAM_ID: ${{ secrets.STEAM_ID }}
+        run: |
+          python steam_export.py \
+            --format ${{ github.event.inputs.format }} \
+            --limit ${{ github.event.inputs.limit }} \
+            --sort ${{ github.event.inputs.sort }} \
+            --min-playtime ${{ github.event.inputs.min_playtime }} \
+            ${{ github.event.inputs.no_steamspy == 'true' && '--no-steamspy' || '' }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: steam_library
+          path: steam_library.${{ github.event.inputs.format }}

@@ -1,0 +1,28 @@
+# Output data
+*.csv
+*.json
+*.sqlite
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (do NOT commit)
+config/.env
+*.key
