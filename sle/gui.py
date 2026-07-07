@@ -21,9 +21,7 @@ from pathlib import Path
 import tomllib
 
 from sle.engine import (
-    run_export, ALL_COLUMNS, CN_COLUMNS, COL_GROUPS, GROUP_FIELDS,
-    CORE_COLUMNS, STORE_COLUMNS, REVIEWS_COLUMNS, STEAMSPY_COLUMNS,
-    __version__,
+    run_export, ALL_COLUMNS, CN_COLUMNS, GROUP_FIELDS,
 )
 
 BASE_DIR = Path(__file__).parent.parent
@@ -750,7 +748,6 @@ class SteamExportGUI:
         ext_map = {"csv": ".csv", "json": ".json", "sqlite": ".db"}
         current = self._entry_output.get().strip()
         if current:
-            base = Path(current).stem
             self._entry_output.delete(0, "end")
             self._entry_output.insert(0, str(Path(current).with_suffix(ext_map.get(fmt, ".csv"))))
 
@@ -824,7 +821,8 @@ class SteamExportGUI:
             if self._cancel_event.is_set():
                 self._root_after(self._on_export_cancelled)
             else:
-                self._root_after(lambda: self._on_export_error(str(e)))
+                error_msg = str(e)
+                self._root_after(lambda msg=error_msg: self._on_export_error(msg))
 
     def _cancel_export(self):
         if not self._export_running:

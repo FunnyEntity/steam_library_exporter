@@ -12,9 +12,9 @@ import os
 import sys
 from pathlib import Path
 
-sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')  # noqa: E402
 
-from sle.engine import run_export, __version__
+from sle.engine import run_export, __version__  # noqa: E402
 
 
 def _load_env_file() -> None:

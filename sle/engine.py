@@ -4,7 +4,6 @@ sle.engine — Steam Library Exporter core engine
 Handles API calls, data enrichment, export pipeline, and i18n loading.
 """
 
-import os
 import re
 import sys
 import time
@@ -19,7 +18,7 @@ try:
 except Exception:
     pass
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 # --- Load i18n config ---
 _I18N_PATH = Path(__file__).parent.parent / "config" / "i18n.toml"
