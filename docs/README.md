@@ -1,12 +1,12 @@
 # Steam Library Exporter
 
-[![CI](https://github.com/davidmalko87/steam-library-exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/davidmalko87/steam-library-exporter/actions/workflows/ci.yml)
+[![CI](https://github.com/funny_entity/steam_library_exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/funny_entity/steam_library_exporter/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-1.1.0-blue)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)]()
-[![Last Commit](https://img.shields.io/github/last-commit/davidmalko87/steam-library-exporter)](https://github.com/davidmalko87/steam-library-exporter/commits/main)
-[![Open Issues](https://img.shields.io/github/issues/davidmalko87/steam-library-exporter)](https://github.com/davidmalko87/steam-library-exporter/issues)
+[![Last Commit](https://img.shields.io/github/last-commit/funny_entity/steam_library_exporter)](https://github.com/funny_entity/steam_library_exporter/commits/main)
+[![Open Issues](https://img.shields.io/github/issues/funny_entity/steam_library_exporter)](https://github.com/funny_entity/steam_library_exporter/issues)
 
 Export your full Steam game library to CSV, JSON, or SQLite with rich metadata from four APIs.
 
