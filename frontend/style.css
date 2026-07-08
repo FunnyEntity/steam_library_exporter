@@ -76,6 +76,11 @@ form { margin-bottom: 20px; }
 .link-row a { font-size: .82rem; color: var(--primary); text-decoration: none; }
 .link-row a:hover { text-decoration: underline; }
 
+.proxy-details { margin-top: 8px; font-size: .82rem; }
+.proxy-details summary { color: var(--text-muted); cursor: pointer; }
+.proxy-input { margin-top: 6px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .82rem; width: 100%; max-width: 460px; }
+.proxy-input:focus { outline: 2px solid var(--primary); outline-offset: -2px; }
+
 .btn-primary {
   padding: 9px 24px;
   background: var(--primary);

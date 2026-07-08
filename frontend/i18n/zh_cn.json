@@ -90,7 +90,9 @@
     "web_msg_free_game": "免费游戏",
     "web_msg_unplayed_game": "未玩",
     "web_get_key_link": "获取 API Key",
-    "web_find_id_link": "查找 Steam64 ID"
+    "web_find_id_link": "查找 Steam64 ID",
+    "web_proxy_toggle": "CORS 代理（可选）",
+    "web_proxy_placeholder": "在此输入你的 Worker URL"
   },
   "columns": {
     "appid": "应用ID",

@@ -93,6 +93,8 @@ web_msg_free_game = "Free Game"
 web_msg_unplayed_game = "Unplayed"
 web_get_key_link = "Get API Key"
 web_find_id_link = "Find Steam64 ID"
+web_proxy_toggle = "CORS Proxy (optional)"
+web_proxy_placeholder = "Enter your Worker URL"
 
 [columns]
 appid = "App ID"
