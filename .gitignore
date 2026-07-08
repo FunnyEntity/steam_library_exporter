@@ -1,6 +1,7 @@
 # Output data
 *.csv
 *.json
+!frontend/i18n/*.json
 *.sqlite
 *.db
 

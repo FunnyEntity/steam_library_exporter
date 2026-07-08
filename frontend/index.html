@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Steam Library Exporter</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <h1 id="brand">Steam Library Exporter</h1>
+    <select id="lang-switcher" aria-label="Language">
+      <option value="zh_cn">简体中文</option>
+      <option value="en_us">English</option>
+    </select>
+  </div>
+</header>
+
+<main>
+  <p id="desc" class="desc"></p>
+
+  <form id="export-form" autocomplete="off">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="api-key" id="lbl-api-key">API Key</label>
+        <div class="input-with-btn">
+          <input type="password" id="api-key" autocomplete="off">
+          <button type="button" class="btn-small" id="btn-show-key">Show</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="steam-id" id="lbl-steam-id">Steam64 ID</label>
+        <input type="text" id="steam-id" autocomplete="off">
+      </div>
+      <div class="form-group form-actions">
+        <button type="submit" class="btn-primary" id="btn-export">Export Library</button>
+      </div>
+    </div>
+    <div class="link-row">
+      <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener" id="link-key">Get API Key</a>
+      <a href="https://steamid.io" target="_blank" rel="noopener" id="link-id">Find Steam64 ID</a>
+    </div>
+  </form>
+
+  <div id="status-msg" class="status-msg"></div>
+
+  <section id="results" class="hidden">
+    <div id="summary" class="summary"></div>
+
+    <div class="toolbar">
+      <input type="text" id="search" class="search-input" autocomplete="off">
+      <div class="btn-group">
+        <button type="button" class="btn-small" id="btn-csv">Download CSV</button>
+        <button type="button" class="btn-small" id="btn-json">Download JSON</button>
+        <button type="button" class="btn-small btn-danger" id="btn-clear">Clear</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table id="game-table">
+        <thead>
+          <tr>
+            <th data-col="appid">App ID</th>
+            <th data-col="name">Name</th>
+            <th data-col="playtime_hours">Playtime (hours)</th>
+            <th data-col="playtime_2weeks_hours">2-Week Playtime</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <a href="https://github.com/FunnyEntity/steam_library_exporter" target="_blank" rel="noopener">GitHub</a>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
