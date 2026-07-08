@@ -72,8 +72,16 @@ form { margin-bottom: 20px; }
 
 .form-actions { justify-content: flex-end; }
 
-.link-row { margin-top: 8px; display: flex; gap: 16px; }
-.link-row a { font-size: .82rem; color: var(--primary); text-decoration: none; }
+.link-row { margin-top: 10px; display: flex; gap: 20px; }
+.link-row a {
+  font-size: .88rem;
+  color: var(--primary);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.link-row a::before { content: '🔗'; font-size: .8rem; }
 .link-row a:hover { text-decoration: underline; }
 
 .btn-primary {
@@ -187,9 +195,37 @@ footer a { color: var(--text-muted); text-decoration: none; }
 footer a:hover { text-decoration: underline; }
 
 @media (max-width: 640px) {
-  .header-inner { flex-direction: column; gap: 8px; }
-  .form-row { flex-direction: column; }
-  .form-group input { min-width: 0; width: 100%; }
-  .summary { gap: 12px; }
-  .toolbar { flex-direction: column; align-items: stretch; }
+  main { padding: 14px 12px; }
+
+  .header-inner { flex-direction: column; gap: 6px; padding: 10px 12px; }
+  header h1 { font-size: 1.1rem; }
+
+  .form-row { flex-direction: column; gap: 10px; }
+  .form-group input { min-width: 0; width: 100%; font-size: 1rem; }
+  .form-group label { font-size: .85rem; }
+  .form-actions { align-items: stretch; }
+  .btn-primary { width: 100%; padding: 12px 20px; font-size: 1rem; top: 0; }
+
+  .link-row { flex-direction: column; gap: 6px; }
+  .link-row a { font-size: .85rem; }
+
+  .summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 8px; padding: 12px; }
+  .summary-item .num { font-size: 1.2rem; }
+  .summary-item .lbl { font-size: .7rem; }
+
+  .toolbar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .search-input { width: 100%; font-size: .9rem; padding: 9px 12px; }
+  .btn-group { flex-wrap: wrap; gap: 4px; }
+  .btn-group .btn-small { flex: 1; min-width: 0; padding: 8px 6px; font-size: .78rem; text-align: center; }
+
+  .table-wrap { font-size: .8rem; }
+  th, td { padding: 7px 8px; }
+  th { font-size: .78rem; }
+  td { font-size: .78rem; }
+
+  .tag { font-size: .68rem; padding: 1px 6px; margin-left: 3px; }
+}
+
+@media (max-width: 400px) {
+  th:nth-child(4), td:nth-child(4) { display: none; }
 }

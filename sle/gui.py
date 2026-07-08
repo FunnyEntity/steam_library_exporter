@@ -15,6 +15,7 @@ import os
 import sys
 import threading
 import tkinter as tk
+import webbrowser
 from tkinter import ttk, messagebox, filedialog
 from pathlib import Path
 
@@ -192,9 +193,10 @@ class SettingsDialog(tk.Toplevel):
 
         self._lbl_key = ttk.Label(frm, text="API Key:")
         self._lbl_key._lang_key = "label_api_key"
+        self._lbl_key.grid(row=0, column=0, sticky="w")
         self._entry_key = ttk.Entry(frm, width=45, show="*")
         self._entry_key.insert(0, self.env_data.get("STEAM_API_KEY", ""))
-        self._entry_key.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        self._entry_key.grid(row=1, column=0, sticky="ew", pady=(2, 2))
 
         self._show_key_var = tk.BooleanVar()
         self._chk_show_key = ttk.Checkbutton(
@@ -202,13 +204,26 @@ class SettingsDialog(tk.Toplevel):
             command=self._toggle_key_visibility,
         )
         self._chk_show_key._lang_key = "show_key"
-        self._chk_show_key.grid(row=1, column=1, sticky="w", padx=(5, 0), pady=(0, 10))
+        self._chk_show_key.grid(row=1, column=1, sticky="w", padx=(5, 0), pady=(2, 2))
+
+        self._lnk_key = ttk.Label(frm, text="Get API Key", cursor="hand2")
+        self._lnk_key._lang_key = "web_get_key_link"
+        self._lnk_key.grid(row=2, column=0, columnspan=2, sticky="w", pady=(0, 14))
+        self._lnk_key.bind("<Button-1>",
+            lambda e: webbrowser.open("https://steamcommunity.com/dev/apikey"))
 
         self._lbl_sid = ttk.Label(frm, text="Steam64 ID:")
         self._lbl_sid._lang_key = "label_steam_id"
+        self._lbl_sid.grid(row=3, column=0, sticky="w")
         self._entry_sid = ttk.Entry(frm, width=45)
         self._entry_sid.insert(0, self.env_data.get("STEAM_ID", ""))
-        self._entry_sid.grid(row=3, column=0, sticky="ew", pady=(0, 10))
+        self._entry_sid.grid(row=4, column=0, sticky="ew", pady=(2, 2))
+
+        self._lnk_sid = ttk.Label(frm, text="Find Steam64 ID", cursor="hand2")
+        self._lnk_sid._lang_key = "web_find_id_link"
+        self._lnk_sid.grid(row=5, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        self._lnk_sid.bind("<Button-1>",
+            lambda e: webbrowser.open("https://steamid.io"))
 
         self._tab_app = ttk.Frame(self._notebook)
         self._notebook.add(self._tab_app, text="Appearance")
