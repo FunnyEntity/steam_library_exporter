@@ -66,8 +66,6 @@
     setAttr('search', 'placeholder', t('web_search_placeholder'));
     setText('link-key', t('web_get_key_link'));
     setText('link-id', t('web_find_id_link'));
-    setText('proxy-toggle', t('web_proxy_toggle'));
-    setAttr('proxy-url', 'placeholder', t('web_proxy_placeholder'));
     document.getElementById('lang-switcher').value = lang;
 
     const ths = document.querySelectorAll('#game-table th');
@@ -109,7 +107,6 @@
     });
     document.getElementById('api-key').addEventListener('change', saveToStorage);
     document.getElementById('steam-id').addEventListener('change', saveToStorage);
-    document.getElementById('proxy-url').addEventListener('change', saveToStorage);
   }
 
   function toggleKeyVisibility() {
@@ -143,9 +140,8 @@
         ? `${proxyHost}?url=${encodeURIComponent(apiUrl)}`
         : apiUrl;
       let resp;
-      try {
-        resp = await fetch(fetchUrl);
-        if (!resp.ok) {
+      resp = await fetch(fetchUrl);
+      if (!resp.ok) {
         setStatus(t('web_msg_fetch_error'), 'error');
         return;
       }
@@ -339,22 +335,15 @@
   function loadFromStorage() {
     const key = localStorage.getItem('sle-api-key');
     const sid = localStorage.getItem('sle-steam-id');
-    const proxy = localStorage.getItem('sle-proxy-url') || 'https://dark-morning-0609.funny-entity.workers.dev';
     if (key) document.getElementById('api-key').value = key;
     if (sid) document.getElementById('steam-id').value = sid;
-    document.getElementById('proxy-url').value = proxy;
-    saveToStorage();
+    localStorage.setItem('sle-proxy', 'https://dark-morning-0609.funny-entity.workers.dev');
   }
 
   function saveToStorage() {
     localStorage.setItem('sle-api-key', document.getElementById('api-key').value.trim());
     localStorage.setItem('sle-steam-id', document.getElementById('steam-id').value.trim());
-    const proxyUrl = document.getElementById('proxy-url').value.trim();
-    if (proxyUrl) {
-      localStorage.setItem('sle-proxy-url', proxyUrl);
-      localStorage.setItem('sle-proxy', proxyUrl);
-    }
-    localStorage.setItem('sle-proxy', document.getElementById('proxy-url').value.trim() || 'https://dark-morning-0609.funny-entity.workers.dev');
+    localStorage.setItem('sle-proxy', 'https://dark-morning-0609.funny-entity.workers.dev');
   }
 
   /* ── Boot ─────────────────────────────────────────── */
