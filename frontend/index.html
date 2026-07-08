@@ -21,7 +21,7 @@
 <main>
   <p id="desc" class="desc"></p>
 
-  <form id="export-form" autocomplete="off">
+  <form id="export-form" autocomplete="off" onsubmit="return false">
     <div class="form-row">
       <div class="form-group">
         <label for="api-key" id="lbl-api-key">API Key</label>
@@ -35,7 +35,7 @@
         <input type="text" id="steam-id" autocomplete="off">
       </div>
       <div class="form-group form-actions">
-        <button type="submit" class="btn-primary" id="btn-export">Export Library</button>
+        <button type="button" class="btn-primary" id="btn-export">Export Library</button>
       </div>
     </div>
     <div class="link-row">

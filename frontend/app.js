@@ -94,7 +94,10 @@
   /* ── Form events ──────────────────────────────────── */
 
   function bindEvents() {
-    document.getElementById('export-form').addEventListener('submit', onExport);
+    document.getElementById('btn-export').addEventListener('click', onExport);
+    document.getElementById('export-form').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); onExport(e); }
+    });
     document.getElementById('btn-show-key').addEventListener('click', toggleKeyVisibility);
     document.getElementById('btn-csv').addEventListener('click', () => download('csv'));
     document.getElementById('btn-json').addEventListener('click', () => download('json'));
@@ -336,10 +339,11 @@
   function loadFromStorage() {
     const key = localStorage.getItem('sle-api-key');
     const sid = localStorage.getItem('sle-steam-id');
-    const proxy = localStorage.getItem('sle-proxy-url');
+    const proxy = localStorage.getItem('sle-proxy-url') || 'https://dark-morning-0609.funny-entity.workers.dev';
     if (key) document.getElementById('api-key').value = key;
     if (sid) document.getElementById('steam-id').value = sid;
-    if (proxy) document.getElementById('proxy-url').value = proxy;
+    document.getElementById('proxy-url').value = proxy;
+    saveToStorage();
   }
 
   function saveToStorage() {
@@ -350,6 +354,7 @@
       localStorage.setItem('sle-proxy-url', proxyUrl);
       localStorage.setItem('sle-proxy', proxyUrl);
     }
+    localStorage.setItem('sle-proxy', document.getElementById('proxy-url').value.trim() || 'https://dark-morning-0609.funny-entity.workers.dev');
   }
 
   /* ── Boot ─────────────────────────────────────────── */
