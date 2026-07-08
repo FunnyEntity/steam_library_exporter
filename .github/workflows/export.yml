@@ -44,6 +44,10 @@ on:
         options:
           - zh_cn
           - en_us
+      columns:
+        description: 'Columns (empty=all, "core"=basics, or comma-separated)'
+        default: ""
+        type: string
 
 jobs:
   export:
@@ -70,6 +74,7 @@ jobs:
             --sort ${{ github.event.inputs.sort }} \
             --min-playtime ${{ github.event.inputs.min_playtime }} \
             --language ${{ github.event.inputs.language }} \
+            ${{ github.event.inputs.columns && format('--columns {0}', github.event.inputs.columns) || '' }} \
             ${{ github.event.inputs.no_steamspy == 'true' && '--no-steamspy' || '' }}
 
       - name: Upload artifact

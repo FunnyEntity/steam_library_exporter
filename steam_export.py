@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')  # noqa: E402
 
-from sle.engine import run_export, __version__, AVAILABLE_LANGS  # noqa: E402
+from sle.engine import run_export, __version__, AVAILABLE_LANGS, ALL_COLUMNS, CORE_COLUMNS  # noqa: E402
 
 
 def _load_env_file() -> None:
@@ -118,6 +118,24 @@ def interactive_mode() -> dict:
     lang_list = AVAILABLE_LANGS if AVAILABLE_LANGS else ["zh_cn"]
     lang_choice = prompt_choice("Language", lang_list, "zh_cn")
 
+    print("\n  Columns: 'core' (4 basic cols), 'all' (24 cols), or a comma-separated list")
+    cols_input = input("  Columns [core/all/list] (all): ").strip().lower()
+    if cols_input == "core":
+        selected_columns = CORE_COLUMNS
+        print(f"    Using core columns ({len(selected_columns)}).")
+    elif not cols_input or cols_input == "all":
+        selected_columns = None
+        print("    Using all columns.")
+    else:
+        selected_columns = set(
+            c.strip() for c in cols_input.split(",") if c.strip() in ALL_COLUMNS
+        )
+        if selected_columns:
+            print(f"    Using {len(selected_columns)} columns.")
+        else:
+            print("    No valid columns matched — using all.")
+            selected_columns = None
+
     default_output = f"steam_library.{fmt}"
     output = prompt_string("Output filename", default=default_output)
 
@@ -153,15 +171,15 @@ def interactive_mode() -> dict:
         "limit": limit,
         "no_steamspy": not use_steamspy,
         "lang": lang_choice,
-    }
+    }, selected_columns
 
 
 def main():
     _load_env_file()
 
     if len(sys.argv) == 1:
-        cfg = interactive_mode()
-        run_export(cfg)
+        cfg, selected_columns = interactive_mode()
+        run_export(cfg, selected_columns=selected_columns)
         return
 
     parser = argparse.ArgumentParser(
@@ -186,6 +204,10 @@ def main():
     lang_choices = AVAILABLE_LANGS if AVAILABLE_LANGS else ["zh_cn"]
     parser.add_argument("--language", choices=lang_choices, default="zh_cn",
                         help="Export language")
+    parser.add_argument("--columns", default="",
+                        help='Columns to export (default: all). '
+                             'Shortcut "core" for basic 4 columns, '
+                             'or comma-separated keys e.g. "appid,name,genres"')
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     args = parser.parse_args()
 
@@ -196,6 +218,17 @@ def main():
 
     if not args.output:
         args.output = f"steam_library.{args.format}"
+
+    if args.columns:
+        if args.columns.lower() == "core":
+            selected_columns = CORE_COLUMNS
+        else:
+            selected_columns = set(
+                c.strip() for c in args.columns.split(",")
+                if c.strip() in ALL_COLUMNS
+            ) or None
+    else:
+        selected_columns = None
 
     cfg = {
         "key": args.key,
@@ -209,7 +242,7 @@ def main():
         "no_steamspy": args.no_steamspy,
         "lang": args.language,
     }
-    run_export(cfg)
+    run_export(cfg, selected_columns=selected_columns)
 
 
 if __name__ == "__main__":
