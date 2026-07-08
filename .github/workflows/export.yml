@@ -37,6 +37,13 @@ on:
         description: Skip SteamSpy data (faster)
         default: false
         type: boolean
+      language:
+        description: Export language
+        default: zh_cn
+        type: choice
+        options:
+          - zh_cn
+          - en_us
 
 jobs:
   export:
@@ -62,6 +69,7 @@ jobs:
             --limit ${{ github.event.inputs.limit }} \
             --sort ${{ github.event.inputs.sort }} \
             --min-playtime ${{ github.event.inputs.min_playtime }} \
+            --language ${{ github.event.inputs.language }} \
             ${{ github.event.inputs.no_steamspy == 'true' && '--no-steamspy' || '' }}
 
       - name: Upload artifact

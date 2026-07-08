@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')  # noqa: E402
 
-from sle.engine import run_export, __version__  # noqa: E402
+from sle.engine import run_export, __version__, AVAILABLE_LANGS  # noqa: E402
 
 
 def _load_env_file() -> None:
@@ -115,6 +115,9 @@ def interactive_mode() -> dict:
     limit = prompt_int("Limit to top N games (0 = all)", 0)
     use_steamspy = prompt_choice("Include SteamSpy data?", ["y", "n"], "y") == "y"
 
+    lang_list = AVAILABLE_LANGS if AVAILABLE_LANGS else ["zh_cn"]
+    lang_choice = prompt_choice("Language", lang_list, "zh_cn")
+
     default_output = f"steam_library.{fmt}"
     output = prompt_string("Output filename", default=default_output)
 
@@ -149,6 +152,7 @@ def interactive_mode() -> dict:
         "min_playtime": min_playtime,
         "limit": limit,
         "no_steamspy": not use_steamspy,
+        "lang": lang_choice,
     }
 
 
@@ -179,6 +183,9 @@ def main():
     parser.add_argument("--min-playtime", type=float, default=0)
     parser.add_argument("--no-steamspy", action="store_true")
     parser.add_argument("--limit", type=int, default=0)
+    lang_choices = AVAILABLE_LANGS if AVAILABLE_LANGS else ["zh_cn"]
+    parser.add_argument("--language", choices=lang_choices, default="zh_cn",
+                        help="Export language")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     args = parser.parse_args()
 
@@ -200,6 +207,7 @@ def main():
         "min_playtime": args.min_playtime,
         "limit": args.limit,
         "no_steamspy": args.no_steamspy,
+        "lang": args.language,
     }
     run_export(cfg)
 

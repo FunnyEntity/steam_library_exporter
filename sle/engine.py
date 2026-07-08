@@ -12,30 +12,65 @@ from datetime import datetime
 from pathlib import Path
 
 import requests
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 except Exception:
     pass
 
-__version__ = "1.2.0"
+__version__ = tomllib.loads(
+    (Path(__file__).parent.parent / "pyproject.toml").read_text("utf-8")
+)["project"]["version"]
 
-# --- Load i18n config ---
-_I18N_PATH = Path(__file__).parent.parent / "config" / "i18n.toml"
-with open(_I18N_PATH, "rb") as _f:
-    _i18n = tomllib.load(_f)
+# --- Load config ---
+_LANG_DIR = Path(__file__).parent.parent / "config" / "lang"
+_COL_GROUPS_PATH = Path(__file__).parent.parent / "config" / "col_groups.toml"
 
-CN_COLUMNS = _i18n.get("columns", {})
-GENRE_CN = _i18n.get("genres", {})
-CATEGORY_CN = _i18n.get("categories", {})
-GAME_NAME_CN = _i18n.get("game_names", {})
-COL_GROUPS = _i18n.get("col_groups", {})
+_LANG_DATA: dict[str, dict] = {}
+if _LANG_DIR.exists():
+    for _f in sorted(_LANG_DIR.glob("*.toml")):
+        with open(_f, "rb") as _fp:
+            _LANG_DATA[_f.stem] = tomllib.load(_fp)
+
+CN_COLUMNS = _LANG_DATA.get("zh_cn", {}).get("columns", {})
+EN_COLUMNS = _LANG_DATA.get("en_us", {}).get("columns", {})
+GENRE_CN = _LANG_DATA.get("zh_cn", {}).get("genres", {})
+CATEGORY_CN = _LANG_DATA.get("zh_cn", {}).get("categories", {})
+GAME_NAME_CN = _LANG_DATA.get("zh_cn", {}).get("game_names", {})
+
+AVAILABLE_LANGS = sorted(_LANG_DATA.keys())
+
+with open(_COL_GROUPS_PATH, "rb") as _f:
+    COL_GROUPS = tomllib.load(_f)
+
+
+def get_columns(lang: str) -> dict:
+    return _LANG_DATA.get(lang, _LANG_DATA.get("zh_cn", {})).get("columns", {})
+
+
+def get_genres(lang: str) -> dict:
+    return _LANG_DATA.get(lang, _LANG_DATA.get("zh_cn", {})).get("genres", {})
+
+
+def get_categories(lang: str) -> dict:
+    return _LANG_DATA.get(lang, _LANG_DATA.get("zh_cn", {})).get("categories", {})
+
+
+def get_game_names(lang: str) -> dict:
+    return _LANG_DATA.get(lang, _LANG_DATA.get("zh_cn", {})).get("game_names", {})
 
 # --- Endpoints ---
 OWNED_GAMES_URL = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/"
 APP_DETAILS_URL = "https://store.steampowered.com/api/appdetails"
 APP_REVIEWS_URL = "https://store.steampowered.com/appreviews/{appid}"
 STEAMSPY_URL = "https://steamspy.com/api.php"
+
+_session = requests.Session()
+_session.verify = False
+_session.trust_env = False
 
 # --- Rate limit delays (seconds) ---
 STORE_DELAY = 1.5
@@ -128,7 +163,12 @@ def get_owned_games(api_key: str, steam_id: str,
         "include_played_free_games": 1,
         "format": "json",
     }
-    resp = requests.get(OWNED_GAMES_URL, params=params, timeout=30)
+    try:
+        resp = _session.get(OWNED_GAMES_URL, params=params, timeout=30)
+    except Exception as e:
+        msg = f"Failed to connect to Steam API (api.steampowered.com): {type(e).__name__}"
+        log(f"[ERROR] {msg}")
+        raise RuntimeError(msg) from e
 
     if resp.status_code != 200:
         msg = (f"GetOwnedGames returned HTTP {resp.status_code}\n"
@@ -155,7 +195,7 @@ def get_owned_games(api_key: str, steam_id: str,
 def get_store_details(appid: int, log_func=None) -> dict:
     def log(msg): log_func(msg) if log_func else print(msg)
     try:
-        resp = requests.get(
+        resp = _session.get(
             APP_DETAILS_URL,
             params={"appids": appid, "l": "english", "cc": "cn"},
             timeout=15,
@@ -174,7 +214,7 @@ def get_store_details(appid: int, log_func=None) -> dict:
 
 def get_review_summary(appid: int) -> dict:
     try:
-        resp = requests.get(
+        resp = _session.get(
             APP_REVIEWS_URL.format(appid=appid),
             params={
                 "json": 1,
@@ -199,7 +239,7 @@ def get_review_summary(appid: int) -> dict:
 
 def get_steamspy_data(appid: int) -> dict:
     try:
-        resp = requests.get(
+        resp = _session.get(
             STEAMSPY_URL,
             params={"request": "appdetails", "appid": appid},
             timeout=15,
@@ -223,6 +263,7 @@ def get_steamspy_data(appid: int) -> dict:
 
 def enrich_game(game: dict, use_steamspy: bool = True,
                 selected_columns: set | None = None,
+                lang: str = "",
                 log_func=None) -> dict:
     def log(msg): log_func(msg) if log_func else print(msg)
 
@@ -231,7 +272,11 @@ def enrich_game(game: dict, use_steamspy: bool = True,
     playtime_hrs = round(game.get("playtime_forever", 0) / 60, 1)
     playtime_2wk = round(game.get("playtime_2weeks", 0) / 60, 1)
 
-    name = GAME_NAME_CN.get(name, name)
+    gn_map = get_game_names(lang) if lang else GAME_NAME_CN
+    name = gn_map.get(name, name)
+
+    genre_map = get_genres(lang) if lang else GENRE_CN
+    cat_map = get_categories(lang) if lang else CATEGORY_CN
 
     row = {
         "appid": appid,
@@ -260,10 +305,10 @@ def enrich_game(game: dict, use_steamspy: bool = True,
             row["developers"] = ", ".join(store.get("developers", []))
             row["publishers"] = ", ".join(store.get("publishers", []))
             row["genres"] = translate_list(
-                ", ".join(g["description"] for g in genres), GENRE_CN,
+                ", ".join(g["description"] for g in genres), genre_map,
             )
             row["categories"] = translate_list(
-                ", ".join(c["description"] for c in categories), CATEGORY_CN,
+                ", ".join(c["description"] for c in categories), cat_map,
             )
             row["release_date"] = store.get("release_date", {}).get("date", "")
             row["metacritic_score"] = store.get("metacritic", {}).get("score", "")
@@ -447,6 +492,7 @@ def run_export(cfg: dict, log_callback=None, progress_callback=None,
             game,
             use_steamspy=not cfg.get("no_steamspy", False),
             selected_columns=selected_columns,
+            lang=cfg.get("lang", ""),
             log_func=log,
         )
         rows.append(row)
@@ -466,10 +512,13 @@ def run_export(cfg: dict, log_callback=None, progress_callback=None,
 
     fmt = cfg.get("format", "csv")
     output = cfg["output"]
+    lang = cfg.get("lang", "")
 
     from sle.exporters import get_exporter
     exporter = get_exporter(fmt)
-    exporter.export(rows, output, selected_columns=selected_columns)
+    columns_map = get_columns(lang) if lang else CN_COLUMNS
+    exporter.export(rows, output, selected_columns=selected_columns,
+                    columns_map=columns_map)
 
     total_time = time.time() - export_start
     log(f"\n[DONE] Exported {len(rows)} games -> {output} ({format_duration(total_time)})")
