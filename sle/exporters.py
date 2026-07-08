@@ -50,7 +50,8 @@ def _sqlite_value(col: str, val) -> object:
 
 class BaseExporter:
     def export(self, rows: list[dict], output: str,
-               selected_columns: set | None = None):
+               selected_columns: set | None = None,
+               columns_map: dict | None = None):
         raise NotImplementedError
 
     @staticmethod
@@ -64,14 +65,16 @@ class BaseExporter:
 # ── CSV 导出器 ────────────────────────────────────────────────────────
 
 class CSVExporter(BaseExporter):
-    def export(self, rows, output, selected_columns=None):
+    def export(self, rows, output, selected_columns=None, columns_map=None):
         if not rows:
             return
+        if columns_map is None:
+            columns_map = CN_COLUMNS
         en_fieldnames = self._resolve_columns(rows, selected_columns)
 
-        cn_fieldnames = [CN_COLUMNS.get(k, k) for k in en_fieldnames]
+        cn_fieldnames = [columns_map.get(k, k) for k in en_fieldnames]
         cn_rows = [
-            {CN_COLUMNS.get(k, k): row.get(k, "") for k in en_fieldnames}
+            {columns_map.get(k, k): row.get(k, "") for k in en_fieldnames}
             for row in rows
         ]
         with open(output, "w", newline="", encoding="utf-8-sig") as f:
@@ -83,7 +86,7 @@ class CSVExporter(BaseExporter):
 # ── JSON 导出器 ───────────────────────────────────────────────────────
 
 class JSONExporter(BaseExporter):
-    def export(self, rows, output, selected_columns=None):
+    def export(self, rows, output, selected_columns=None, columns_map=None):
         if not rows:
             return
         en_fieldnames = self._resolve_columns(rows, selected_columns)
@@ -96,7 +99,7 @@ class JSONExporter(BaseExporter):
 # ── SQLite 导出器 ─────────────────────────────────────────────────────
 
 class SQLiteExporter(BaseExporter):
-    def export(self, rows, output, selected_columns=None):
+    def export(self, rows, output, selected_columns=None, columns_map=None):
         if not rows:
             return
         en_fieldnames = self._resolve_columns(rows, selected_columns)
