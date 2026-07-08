@@ -9,16 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.2.1] — 2026-07-08
 
+### Added
+- **Web frontend**: GitHub Pages-hosted single-page app at `funnyentity.github.io/steam_library_exporter` for core export (game list, sort, search, CSV/JSON download) without installing Python.
+- **`--columns` CLI flag**: `--columns core` for 4 basic columns, or `--columns "appid,name,genres"` for custom selection.
+- **CORS proxy**: Cloudflare Worker at `scripts/cors-proxy.js` with rate limiting (30 req/min/IP) for browser-to-Steam-API calls.
+- **API Key / Steam64 ID links** in GUI Settings dialog.
+
 ### Changed
 - **i18n renamed to lang**: `config/i18n/` → `config/lang/`, `class I18n` → `class Lang`, all `_i18n_key` → `_lang_key`.
 - **Per-language TOML files**: translations split into `config/lang/zh_cn.toml` / `en_us.toml`; column group structure moved to `config/col_groups.toml`. Adding a language now requires zero code changes.
 - **Multi-language export**: CLI `--language` flag, GitHub Actions `language` input, GUI automatically exports in the active UI language.
 - **GUI polish**: removed redundant credentials display and SteamSpy checkbox from main window; Settings button moved to button bar.
+- **Responsive web layout**: mobile-friendly CSS with hidden columns on small screens, touch-sized buttons, 2×2 summary grid.
 
 ### Fixed
 - **SSL certificate error on Windows**: requests session uses `verify=False` and `trust_env=False` to bypass broken proxy/certificate chains.
 - **Secret leak**: API key and Steam ID no longer appear in error messages when connections fail.
 - **Version synchronization**: `engine.py` now reads `__version__` from `pyproject.toml` — only one place to bump.
+- **Language hot-switching**: Settings dialog now correctly updates main window language immediately.
 
 ## [1.2.0] — 2026-07-07
 

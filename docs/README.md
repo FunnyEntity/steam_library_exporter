@@ -20,11 +20,13 @@ This tool pulls playtime, genres, prices, reviews, Metacritic scores, community 
 
 | Feature | Description |
 |---|---|
+| **Web interface** | Use it directly in your browser without installing anything — `funnyentity.github.io/steam_library_exporter` |
 | Interactive mode | Run without arguments for a guided step-by-step setup — no flags to memorize |
 | 24 metadata columns | appid, name, playtime, genres, developers, publishers, release date, Metacritic score, prices, review counts, SteamSpy tags, and more |
 | CSV, JSON & SQLite export | `--format csv` (default), `--format json`, or `--format sqlite` |
 | GUI application | `steam_export_gui.py` / `.pyw` — point-and-click export with column selector |
-| i18n support | Chinese and English UI with translatable game names, genres, and categories |
+| Column selection | `--columns core` for basics, `--columns "appid,name,genres"` for custom set |
+| Language support | `--language zh_cn` / `en_us` for export output; GUI and web auto-switch |
 | Smart API skip | Only fetches data for columns you select — up to 100× faster for core-only export |
 | Four API sources | Steam Web API, Steam Store API, Steam Reviews API, SteamSpy |
 | Rich sort options | `--sort` supports 9 fields: playtime, playtime_2weeks, name, appid, metacritic, reviews, price, release_date, owners |
@@ -203,10 +205,20 @@ steam-library-exporter/
 │   │   └── publish.yml      # PyPI release
 │   └── PULL_REQUEST_TEMPLATE.md
 ├── config/
-│   ├── .env               # Secrets (API key, Steam ID, theme, language)
-│   ├── .env.example        # Template for new users
-│   ├── i18n.toml           # Chinese/English translations
-│   └── settings.toml       # Default theme and language
+│   ├── .env                  # Secrets (API key, Steam ID, theme, language)
+│   ├── settings.toml          # Default theme and language
+│   ├── col_groups.toml        # Column group definitions (multilingual)
+│   └── lang/                  # Per-language translation files
+│       ├── zh_cn.toml
+│       └── en_us.toml
+├── frontend/                  # Web UI (GitHub Pages)
+│   ├── index.html
+│   ├── app.js
+│   ├── style.css
+│   └── i18n/
+├── scripts/
+│   ├── build_i18n_json.py     # TOML → JSON converter for web frontend
+│   └── cors-proxy.js          # Cloudflare Worker for CORS proxy
 ├── docs/
 │   ├── README.md
 │   ├── CHANGELOG.md
@@ -222,6 +234,27 @@ steam-library-exporter/
 ├── requirements.txt
 └── LICENSE
 ```
+
+---
+
+## Web Interface
+
+A lightweight browser-based version is available for quick lookups — no install needed:
+
+👉 **[funnyentity.github.io/steam_library_exporter](https://funnyentity.github.io/steam_library_exporter/)**
+
+Enter your API Key and Steam64 ID, click Export, and get an interactive table with sort, search, and CSV/JSON download.
+
+| Feature | Web | CLI | GUI |
+|---------|:---:|:---:|:---:|
+| Game list + playtime | ✅ | ✅ | ✅ |
+| Store details (genres, prices) | ❌ | ✅ | ✅ |
+| SteamSpy / Reviews | ❌ | ✅ | ✅ |
+| SQLite export | ❌ | ✅ | ✅ |
+| CSV / JSON download | ✅ | ✅ | ✅ |
+| Language switching | ✅ | ✅ | ✅ |
+
+The web version fetches only core data (appid, name, playtime) via the Steam Web API — it's instant but limited compared to the full desktop version.
 
 ---
 
@@ -252,6 +285,7 @@ Your Steam Web API key is read-only and scoped to public data, but treat it like
 
 ## Links
 
+- [🌐 Web Interface](https://funnyentity.github.io/steam_library_exporter/)
 - [Changelog](CHANGELOG.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Open an issue](https://github.com/FunnyEntity/steam_library_exporter/issues)

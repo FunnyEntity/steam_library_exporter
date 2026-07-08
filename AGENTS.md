@@ -21,6 +21,14 @@ config/                      # all configuration
   lang/                      # per-language translation files
     zh_cn.toml               # Chinese: gui, columns, genres, categories, game_names
     en_us.toml               # English: gui, columns (genres/categories optional)
+frontend/                    # web UI (GitHub Pages)
+  index.html                 # single-page app
+  app.js                     # core logic
+  style.css                  # responsive styling
+  i18n/                      # JSON translations (built by CI from config/lang/)
+scripts/
+  build_i18n_json.py         # TOML → JSON converter for web frontend
+  cors-proxy.js              # Cloudflare Worker for browser CORS proxy
 ```
 
 ## Entry points
@@ -39,6 +47,10 @@ ruff check .              # lint (uses ruff defaults, no ruff.toml)
 pip install -r requirements.txt   # install (only dependency: requests)
 python steam_export.py --help     # see CLI flags
 ```
+
+Key CLI flags: `--key`, `--steamid`, `--format`, `--sort`, `--sort-secondary`, `--min-playtime`, `--limit`, `--no-steamspy`, `--language`, `--columns`.
+
+Use `--columns core` for 4 basic columns or `--columns "appid,name,genres"` for custom set.
 
 There is no test suite. CI runs `ruff check .` + smoke test `python -c "import steam_export"` on Python 3.11/3.12/3.13.
 
@@ -79,6 +91,7 @@ Multi-word TOML keys MUST be quoted: `"Massively Multiplayer" = "中文"`.
 - **GUI thread safety**: Export runs in a `threading.Thread`. All UI updates via `root.after()`. Cancel uses `threading.Event`.
 - **Hot language/theme switching**: Widgets have a `_lang_key` attribute. `_apply_language()` walks the widget tree and replaces text. Theme switches via `ttk.Style().theme_use()`.
 - **Runtime language for export**: `enrich_game()` and `CSVExporter` accept a `lang` parameter. CLI uses `--language`, GUI passes `self.lang.lang`, GitHub Actions passes `language` workflow input. `run_export()` reads `cfg["lang"]`.
+- **Web frontend**: vanilla JS SPA served via GitHub Pages. Uses a Cloudflare Worker (`scripts/cors-proxy.js`) to bypass CORS on Steam API. Worker URL is hardcoded in `frontend/app.js`; redeploy worker to change it. i18n JSON files are built by CI from `config/lang/*.toml` via `scripts/build_i18n_json.py`.
 - **Version**: set in `pyproject.toml` only. `sle/engine.py::__version__` reads it automatically via `tomllib`.
 
 ## Known quirks
