@@ -1,0 +1,36 @@
+# col_groups.toml — column group definitions (structural + multilingual labels)
+# Add new language labels: append label_{lang} / desc_{lang} to each group
+
+[core]
+label_zh_cn = "核心数据"
+label_en_us = "Core Data"
+desc_zh_cn = "来自 Steam Web API"
+desc_en_us = "from Steam Web API"
+fields = ["appid", "name", "playtime_hours", "playtime_2weeks_hours"]
+per_game_delay = 0.0
+
+[store]
+label_zh_cn = "商店数据"
+label_en_us = "Store Data"
+desc_zh_cn = "来自 Steam Store API"
+desc_en_us = "from Steam Store API"
+fields = ["type", "developers", "publishers", "genres", "categories",
+          "release_date", "metacritic_score", "price_current", "price_initial",
+          "is_free", "short_description", "header_image"]
+per_game_delay = 1.5
+
+[reviews]
+label_zh_cn = "评价数据"
+label_en_us = "Review Data"
+desc_zh_cn = "来自 Steam Reviews API"
+desc_en_us = "from Steam Reviews API"
+fields = ["total_positive", "total_negative", "review_score_desc", "total_reviews"]
+per_game_delay = 1.5
+
+[steamspy]
+label_zh_cn = "SteamSpy数据"
+label_en_us = "SteamSpy Data"
+desc_zh_cn = "来自 SteamSpy API"
+desc_en_us = "from SteamSpy API"
+fields = ["estimated_owners", "avg_playtime_global", "median_playtime_global", "steamspy_tags"]
+per_game_delay = 1.0

@@ -4,7 +4,7 @@ sle.gui — Steam Library Exporter GUI components
 tkinter-based GUI for the export engine.
 
 Provides:
-  - I18n: internationalization manager
+  - Lang: internationalization manager
   - EnvManager: .env file read/write
   - SettingsDialog: credentials + theme/language settings
   - ColumnSelectDialog: grouped column selection
@@ -21,25 +21,38 @@ from pathlib import Path
 import tomllib
 
 from sle.engine import (
-    run_export, ALL_COLUMNS, CN_COLUMNS, GROUP_FIELDS,
+    run_export, ALL_COLUMNS, GROUP_FIELDS, STEAMSPY_COLUMNS,
 )
 
 BASE_DIR = Path(__file__).parent.parent
 CONFIG_DIR = BASE_DIR / "config"
-I18N_PATH = CONFIG_DIR / "i18n.toml"
+LANG_DIR = CONFIG_DIR / "lang"
+COL_GROUPS_PATH = CONFIG_DIR / "col_groups.toml"
 ENV_PATH = CONFIG_DIR / ".env"
 SETTINGS_PATH = CONFIG_DIR / "settings.toml"
 
 
-# ── I18n Manager ──────────────────────────────────────────────────────
+# ── Lang Manager ───────────────────────────────────────────────────────
 
-class I18n:
-    def __init__(self, lang: str = "zh"):
-        with open(I18N_PATH, "rb") as f:
-            self._data = tomllib.load(f)
+class Lang:
+    def __init__(self, lang: str = "zh_cn"):
+        with open(COL_GROUPS_PATH, "rb") as f:
+            self._col_groups = tomllib.load(f)
         self._lang = lang
+        self._file = self._resolve_file(lang)
+        with open(self._file, "rb") as f:
+            self._data = tomllib.load(f)
         self._gui = self._data.get("gui", {})
-        self._col_groups = self._data.get("col_groups", {})
+
+    @staticmethod
+    def _resolve_file(lang: str) -> Path:
+        path = LANG_DIR / f"{lang}.toml"
+        if path.exists():
+            return path
+        fallback = LANG_DIR / "zh_cn.toml"
+        if fallback.exists():
+            return fallback
+        return path
 
     @property
     def lang(self) -> str:
@@ -47,28 +60,49 @@ class I18n:
 
     @lang.setter
     def lang(self, value: str):
+        if value == self._lang:
+            return
         self._lang = value
+        self._file = self._resolve_file(value)
+        with open(self._file, "rb") as f:
+            self._data = tomllib.load(f)
+        self._gui = self._data.get("gui", {})
 
     def t(self, key: str) -> str:
-        lang_data = self._gui.get(self._lang, {})
-        return lang_data.get(key, key)
+        return self._gui.get(key, key)
 
     def column_name(self, en_key: str) -> str:
-        return CN_COLUMNS.get(en_key, en_key)
+        cols = self._data.get("columns", {})
+        return cols.get(en_key, en_key)
 
     def group_label(self, group_key: str) -> str:
         g = self._col_groups.get(group_key, {})
-        label_key = f"label_{self._lang}"
-        return g.get(label_key, g.get("label_zh", group_key))
+        return g.get(f"label_{self._lang}", g.get("label_zh_cn", group_key))
 
     def group_desc(self, group_key: str) -> str:
         g = self._col_groups.get(group_key, {})
-        desc_key = f"desc_{self._lang}"
-        return g.get(desc_key, g.get("desc_zh", ""))
+        return g.get(f"desc_{self._lang}", g.get("desc_zh_cn", ""))
 
     def group_delay(self, group_key: str) -> float:
         g = self._col_groups.get(group_key, {})
         return g.get("per_game_delay", 0.0)
+
+    @staticmethod
+    def available_languages() -> dict[str, str]:
+        """Return {display_name: lang_code} for all language files in lang dir."""
+        result: dict[str, str] = {}
+        if not LANG_DIR.exists():
+            return result
+        for f in sorted(LANG_DIR.glob("*.toml")):
+            lang_code = f.stem
+            try:
+                with open(f, "rb") as fp:
+                    data = tomllib.load(fp)
+                display = data.get("gui", {}).get("_label", lang_code)
+                result[display] = lang_code
+            except Exception:
+                result[lang_code] = lang_code
+        return result
 
 
 # ── Env Manager ───────────────────────────────────────────────────────
@@ -79,7 +113,7 @@ def _load_settings_defaults() -> dict:
         "STEAM_API_KEY": "",
         "STEAM_ID": "",
         "THEME": "clam",
-        "LANGUAGE": "zh",
+        "LANGUAGE": "zh_cn",
         "SELECTED_COLUMNS": ",".join(ALL_COLUMNS),
     }
     if not SETTINGS_PATH.exists():
@@ -111,6 +145,11 @@ class EnvManager:
                     continue
                 key, _, val = line.partition("=")
                 result[key.strip()] = val.strip()
+        lang = result.get("LANGUAGE", "")
+        if lang == "zh":
+            result["LANGUAGE"] = "zh_cn"
+        elif lang == "en":
+            result["LANGUAGE"] = "en_us"
         return result
 
     @staticmethod
@@ -125,12 +164,13 @@ class EnvManager:
 # ── Settings Dialog ───────────────────────────────────────────────────
 
 class SettingsDialog(tk.Toplevel):
-    def __init__(self, parent, i18n: I18n, env_data: dict):
+    def __init__(self, parent, lng: Lang, env_data: dict, gui):
         super().__init__(parent)
-        self.i18n = i18n
+        self.lang = lng
         self.env_data = env_data
+        self._gui = gui
 
-        self.title(i18n.t("settings_title"))
+        self.title(lng.t("settings_title"))
         self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
@@ -145,13 +185,13 @@ class SettingsDialog(tk.Toplevel):
 
         self._tab_cred = ttk.Frame(self._notebook)
         self._notebook.add(self._tab_cred, text="Credentials")
-        self._tab_cred._i18n_key = "tab_credentials"
+        self._tab_cred._lang_key = "tab_credentials"
 
         frm = ttk.Frame(self._tab_cred, padding=15)
         frm.pack(fill="both", expand=True)
 
         self._lbl_key = ttk.Label(frm, text="API Key:")
-        self._lbl_key._i18n_key = "label_api_key"
+        self._lbl_key._lang_key = "label_api_key"
         self._entry_key = ttk.Entry(frm, width=45, show="*")
         self._entry_key.insert(0, self.env_data.get("STEAM_API_KEY", ""))
         self._entry_key.grid(row=1, column=0, sticky="ew", pady=(0, 10))
@@ -161,23 +201,24 @@ class SettingsDialog(tk.Toplevel):
             frm, text="Show", variable=self._show_key_var,
             command=self._toggle_key_visibility,
         )
+        self._chk_show_key._lang_key = "show_key"
         self._chk_show_key.grid(row=1, column=1, sticky="w", padx=(5, 0), pady=(0, 10))
 
         self._lbl_sid = ttk.Label(frm, text="Steam64 ID:")
-        self._lbl_sid._i18n_key = "label_steam_id"
+        self._lbl_sid._lang_key = "label_steam_id"
         self._entry_sid = ttk.Entry(frm, width=45)
         self._entry_sid.insert(0, self.env_data.get("STEAM_ID", ""))
         self._entry_sid.grid(row=3, column=0, sticky="ew", pady=(0, 10))
 
         self._tab_app = ttk.Frame(self._notebook)
         self._notebook.add(self._tab_app, text="Appearance")
-        self._tab_app._i18n_key = "tab_appearance"
+        self._tab_app._lang_key = "tab_appearance"
 
         frm2 = ttk.Frame(self._tab_app, padding=15)
         frm2.pack(fill="both", expand=True)
 
         self._lbl_theme = ttk.Label(frm2, text="Theme:")
-        self._lbl_theme._i18n_key = "label_theme"
+        self._lbl_theme._lang_key = "label_theme"
         self._lbl_theme.grid(row=0, column=0, sticky="w", pady=(0, 5))
         self._theme_var = tk.StringVar(value=self.env_data.get("THEME", "clam"))
         themes = sorted(ttk.Style().theme_names())
@@ -189,12 +230,20 @@ class SettingsDialog(tk.Toplevel):
         self._combo_theme.bind("<<ComboboxSelected>>", self._on_theme_change)
 
         self._lbl_lang = ttk.Label(frm2, text="Language:")
-        self._lbl_lang._i18n_key = "label_language"
+        self._lbl_lang._lang_key = "label_language"
         self._lbl_lang.grid(row=2, column=0, sticky="w", pady=(0, 5))
-        self._lang_var = tk.StringVar(value=self.env_data.get("LANGUAGE", "zh"))
+
+        available_langs = Lang.available_languages()
+        self._lang_names = {display: code for display, code in available_langs.items()}
+        default_code = self.env_data.get("LANGUAGE", "zh_cn")
+        default_name = next(
+            (n for n, c in self._lang_names.items() if c == default_code),
+            next(iter(self._lang_names)) if self._lang_names else "zh_cn",
+        )
+        self._lang_var = tk.StringVar(value=default_name)
         self._combo_lang = ttk.Combobox(
             frm2, textvariable=self._lang_var,
-            values=["zh", "en"], state="readonly", width=25,
+            values=list(self._lang_names.keys()), state="readonly", width=25,
         )
         self._combo_lang.grid(row=3, column=0, sticky="ew", pady=(0, 15))
         self._combo_lang.bind("<<ComboboxSelected>>", self._on_lang_change)
@@ -202,10 +251,10 @@ class SettingsDialog(tk.Toplevel):
         btn_frame = ttk.Frame(self)
         btn_frame.pack(fill="x", padx=10, pady=(0, 10))
         self._btn_save = ttk.Button(btn_frame, text="Save", command=self._on_save)
-        self._btn_save._i18n_key = "save_btn_settings"
+        self._btn_save._lang_key = "save_btn_settings"
         self._btn_save.pack(side="right", padx=(5, 0))
         self._btn_cancel = ttk.Button(btn_frame, text="Cancel", command=self.destroy)
-        self._btn_cancel._i18n_key = "cancel_btn_settings"
+        self._btn_cancel._lang_key = "cancel_btn_settings"
         self._btn_cancel.pack(side="right")
 
     def _toggle_key_visibility(self):
@@ -218,24 +267,25 @@ class SettingsDialog(tk.Toplevel):
         self.env_data["THEME"] = theme
 
     def _on_lang_change(self, event=None):
-        lang = self._lang_var.get()
+        display_name = self._lang_var.get()
+        lang = self._lang_names.get(display_name, display_name)
         self.env_data["LANGUAGE"] = lang
-        self.i18n.lang = lang
+        self.lang.lang = lang
         self._apply_language()
-        self.master._apply_language()
+        self._gui._apply_language()
 
     def _on_save(self):
         self.env_data["STEAM_API_KEY"] = self._entry_key.get()
         self.env_data["STEAM_ID"] = self._entry_sid.get()
         EnvManager.save(self.env_data)
         self.destroy()
-        self.master._load_env()
+        self._gui._load_env()
 
     def _apply_language(self):
-        i = self.i18n
+        i = self.lang
         self.title(i.t("settings_title"))
         for widget in self._all_widgets():
-            key = getattr(widget, "_i18n_key", None)
+            key = getattr(widget, "_lang_key", None)
             if key:
                 try:
                     widget.configure(text=i.t(key))
@@ -273,15 +323,15 @@ class SettingsDialog(tk.Toplevel):
 # ── Column Select Dialog ──────────────────────────────────────────────
 
 class ColumnSelectDialog(tk.Toplevel):
-    def __init__(self, parent, i18n: I18n, selected: set):
+    def __init__(self, parent, lng: Lang, selected: set):
         super().__init__(parent)
-        self.i18n = i18n
+        self.lang = lng
         self.selected = set(selected)
         self._group_vars: dict[str, tk.BooleanVar] = {}
         self._item_vars: dict[str, tk.BooleanVar] = {}
         self._result = None
 
-        self.title(i18n.t("col_select_title"))
+        self.title(lng.t("col_select_title"))
         self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
@@ -301,7 +351,7 @@ class ColumnSelectDialog(tk.Toplevel):
                 continue
 
             gf = ttk.LabelFrame(main_frame, text=gk, padding=5)
-            gf._i18n_group = gk
+            gf._lang_group = gk
             gf.pack(fill="x", pady=(0, 8))
 
             group_var = tk.BooleanVar(value=all(f in self.selected for f in fields))
@@ -310,14 +360,14 @@ class ColumnSelectDialog(tk.Toplevel):
                 gf, text="", variable=group_var,
                 command=lambda g=gk: self._toggle_group(g),
             )
-            gc._i18n_group_cb = gk
+            gc._lang_group_cb = gk
             gc.pack(anchor="w", padx=5)
 
             inner = ttk.Frame(gf, padding=5)
             inner.pack(fill="x")
 
             for idx, field in enumerate(fields):
-                cn_name = self.i18n.column_name(field)
+                cn_name = self.lang.column_name(field)
                 var = tk.BooleanVar(value=field in self.selected)
                 self._item_vars[field] = var
                 cb = ttk.Checkbutton(
@@ -332,23 +382,23 @@ class ColumnSelectDialog(tk.Toplevel):
         bottom.pack(fill="x")
 
         self._btn_all = ttk.Button(bottom, text="Select All", command=self._select_all)
-        self._btn_all._i18n_key = "btn_select_all"
+        self._btn_all._lang_key = "btn_select_all"
         self._btn_all.pack(side="left", padx=(0, 5))
         self._btn_none = ttk.Button(bottom, text="Deselect All", command=self._deselect_all)
-        self._btn_none._i18n_key = "btn_deselect_all"
+        self._btn_none._lang_key = "btn_deselect_all"
         self._btn_none.pack(side="left")
 
         self._lbl_count = ttk.Label(bottom, text="")
-        self._lbl_count._i18n_key = "label_total_selected"
+        self._lbl_count._lang_key = "label_total_selected"
         self._lbl_count.pack(side="right")
 
         btn_frame = ttk.Frame(self, padding=(10, 0, 10, 10))
         btn_frame.pack(fill="x")
         self._btn_ok = ttk.Button(btn_frame, text="OK", command=self._on_ok)
-        self._btn_ok._i18n_key = "col_select_confirm"
+        self._btn_ok._lang_key = "col_select_confirm"
         self._btn_ok.pack(side="right", padx=(5, 0))
         self._btn_cancel = ttk.Button(btn_frame, text="Cancel", command=self.destroy)
-        self._btn_cancel._i18n_key = "col_select_cancel"
+        self._btn_cancel._lang_key = "col_select_cancel"
         self._btn_cancel.pack(side="right")
 
         self._update_count()
@@ -399,7 +449,7 @@ class ColumnSelectDialog(tk.Toplevel):
         return self._result
 
     def _update_count(self):
-        i = self.i18n
+        i = self.lang
         count = len(self.selected)
         total = len(ALL_COLUMNS)
         tmpl = i.t("label_total_selected")
@@ -414,7 +464,7 @@ class ColumnSelectDialog(tk.Toplevel):
         delay = 0.0
         for gk, gd in GROUP_FIELDS.items():
             if any(self._item_vars.get(f) and self._item_vars[f].get() for f in gd):
-                delay += self.i18n.group_delay(gk)
+                delay += self.lang.group_delay(gk)
         sec_per_game = delay + 0.3
         if sec_per_game < 60:
             per_str = f"~{sec_per_game:.0f}s"
@@ -422,12 +472,13 @@ class ColumnSelectDialog(tk.Toplevel):
             per_str = f"~{sec_per_game / 60:.0f}min"
         else:
             per_str = f"~{sec_per_game / 3600:.1f}h"
+        est_time_text = i.t("label_est_time").replace("{}", per_str)
         self._lbl_count.configure(
-            text=f"{text}     {i.t('label_est_time')}: {per_str}/game"
+            text=f"{text}     {est_time_text}"
         )
 
     def _apply_language(self):
-        i = self.i18n
+        i = self.lang
         self.title(i.t("col_select_title"))
         self._btn_all.configure(text=i.t("btn_select_all"))
         self._btn_none.configure(text=i.t("btn_deselect_all"))
@@ -439,14 +490,14 @@ class ColumnSelectDialog(tk.Toplevel):
 
     def _apply_lang_widget(self, widget, i):
         if isinstance(widget, ttk.LabelFrame):
-            gk = getattr(widget, "_i18n_group", None)
+            gk = getattr(widget, "_lang_group", None)
             if gk:
                 label = i.group_label(gk)
                 desc = i.group_desc(gk)
                 widget.configure(text=f"  {label}  ({desc})  ")
             for child in widget.winfo_children():
                 if isinstance(child, ttk.Checkbutton):
-                    gk2 = getattr(child, "_i18n_group_cb", None)
+                    gk2 = getattr(child, "_lang_group_cb", None)
                     if gk2:
                         child.configure(text=i.group_label(gk2))
         if isinstance(widget, ttk.Checkbutton):
@@ -472,8 +523,8 @@ class ColumnSelectDialog(tk.Toplevel):
 class SteamExportGUI:
     def __init__(self):
         self.env_data = EnvManager.load()
-        lang = self.env_data.get("LANGUAGE", "zh")
-        self.i18n = I18n(lang)
+        lang = self.env_data.get("LANGUAGE", "zh_cn")
+        self.lang = Lang(lang)
 
         sel_str = self.env_data.get("SELECTED_COLUMNS", "")
         if sel_str:
@@ -495,7 +546,7 @@ class SteamExportGUI:
         self.root.mainloop()
 
     def _build_ui(self):
-        self.root.title(self.i18n.t("window_title"))
+        self.root.title(self.lang.t("window_title"))
         self.root.geometry("780x650")
         self.root.minsize(650, 500)
 
@@ -507,65 +558,43 @@ class SteamExportGUI:
         main = ttk.Frame(self.root, padding=10)
         main.pack(fill="both", expand=True)
 
-        # ── Credentials ──
-        cred_frame = ttk.LabelFrame(main, text="Credentials", padding=8)
-        cred_frame._i18n_key = "section_credentials"
-        cred_frame.pack(fill="x", pady=(0, 8))
-
-        cred_inner = ttk.Frame(cred_frame)
-        cred_inner.pack(fill="x")
-
-        self._lbl_key = ttk.Label(cred_inner, text="API Key:")
-        self._lbl_key._i18n_key = "label_api_key"
-        self._lbl_key.grid(row=0, column=0, sticky="e", padx=(0, 5))
-        self._entry_key = ttk.Entry(cred_inner, width=40, show="*", state="readonly")
-        self._entry_key.grid(row=0, column=1, sticky="ew")
-
-        self._lbl_sid = ttk.Label(cred_inner, text="Steam64 ID:")
-        self._lbl_sid._i18n_key = "label_steam_id"
-        self._lbl_sid.grid(row=1, column=0, sticky="e", padx=(0, 5), pady=(4, 0))
-        self._entry_sid = ttk.Entry(cred_inner, width=40, state="readonly")
-        self._entry_sid.grid(row=1, column=1, sticky="ew", pady=(4, 0))
-
-        self._btn_settings = ttk.Button(
-            cred_inner, text="Settings", command=self._open_settings,
-        )
-        self._btn_settings._i18n_key = "btn_settings"
-        self._btn_settings.grid(row=0, column=2, rowspan=2, padx=(8, 0), sticky="ns")
-
-        cred_inner.columnconfigure(1, weight=1)
-
         # ── Export options ──
         export_frame = ttk.LabelFrame(main, text="Export Options", padding=8)
-        export_frame._i18n_key = "section_export"
+        export_frame._lang_key = "section_export"
         export_frame.pack(fill="x", pady=(0, 8))
 
         exp = ttk.Frame(export_frame)
         exp.pack(fill="x")
 
         self._lbl_output = ttk.Label(exp, text="Output:")
-        self._lbl_output._i18n_key = "label_output"
+        self._lbl_output._lang_key = "label_output"
         self._lbl_output.grid(row=0, column=0, sticky="e", padx=(0, 5))
         self._entry_output = ttk.Entry(exp, width=35)
         self._entry_output.insert(0, "steam_library.csv")
         self._entry_output.grid(row=0, column=1, columnspan=2, sticky="ew")
         self._btn_browse = ttk.Button(exp, text="Browse...", command=self._browse_output)
-        self._btn_browse._i18n_key = "btn_browse"
+        self._btn_browse._lang_key = "btn_browse"
         self._btn_browse.grid(row=0, column=3, padx=(5, 0))
 
         self._lbl_format = ttk.Label(exp, text="Format:")
-        self._lbl_format._i18n_key = "label_format"
+        self._lbl_format._lang_key = "label_format"
         self._lbl_format.grid(row=1, column=0, sticky="e", padx=(0, 5))
         self._format_var = tk.StringVar(value="csv")
         f_frame = ttk.Frame(exp)
         f_frame.grid(row=1, column=1, sticky="w")
-        ttk.Radiobutton(f_frame, text="CSV", variable=self._format_var, value="csv").pack(side="left")
-        ttk.Radiobutton(f_frame, text="JSON", variable=self._format_var, value="json").pack(side="left", padx=(8, 0))
-        ttk.Radiobutton(f_frame, text="SQLite", variable=self._format_var, value="sqlite").pack(side="left", padx=(8, 0))
+        rb = ttk.Radiobutton(f_frame, text="CSV", variable=self._format_var, value="csv")
+        rb._lang_key = "format_csv"
+        rb.pack(side="left")
+        rb = ttk.Radiobutton(f_frame, text="JSON", variable=self._format_var, value="json")
+        rb._lang_key = "format_json"
+        rb.pack(side="left", padx=(8, 0))
+        rb = ttk.Radiobutton(f_frame, text="SQLite", variable=self._format_var, value="sqlite")
+        rb._lang_key = "format_sqlite"
+        rb.pack(side="left", padx=(8, 0))
         self._format_var.trace_add("write", lambda *a: self._on_format_change())
 
         self._lbl_sort = ttk.Label(exp, text="Sort:")
-        self._lbl_sort._i18n_key = "label_sort"
+        self._lbl_sort._lang_key = "label_sort"
         self._lbl_sort.grid(row=1, column=2, sticky="e", padx=(15, 5))
         self._sort_var = tk.StringVar(value="playtime")
         SORT_KEYS = ["playtime", "playtime_2weeks", "name", "appid", "metacritic",
@@ -577,7 +606,7 @@ class SteamExportGUI:
         self._combo_sort.grid(row=1, column=3, sticky="w", padx=(0, 5))
 
         self._lbl_sort2 = ttk.Label(exp, text="Secondary:")
-        self._lbl_sort2._i18n_key = "label_sort_secondary"
+        self._lbl_sort2._lang_key = "label_sort_secondary"
         self._lbl_sort2.grid(row=1, column=4, sticky="e", padx=(5, 5))
         SORT_KEYS2 = ["none", "playtime", "playtime_2weeks", "name", "appid",
                       "metacritic", "reviews", "price", "release_date", "owners"]
@@ -589,38 +618,30 @@ class SteamExportGUI:
         self._combo_sort2.grid(row=1, column=5, sticky="w", padx=(0, 5))
 
         self._lbl_min = ttk.Label(exp, text="Min playtime (h):")
-        self._lbl_min._i18n_key = "label_min_playtime"
+        self._lbl_min._lang_key = "label_min_playtime"
         self._lbl_min.grid(row=2, column=0, sticky="e", padx=(0, 5))
         self._entry_min = ttk.Entry(exp, width=8)
         self._entry_min.insert(0, "0")
         self._entry_min.grid(row=2, column=1, sticky="w")
 
         self._lbl_limit = ttk.Label(exp, text="Limit:")
-        self._lbl_limit._i18n_key = "label_limit"
+        self._lbl_limit._lang_key = "label_limit"
         self._lbl_limit.grid(row=2, column=2, sticky="e", padx=(15, 5))
         self._entry_limit = ttk.Entry(exp, width=8)
         self._entry_limit.insert(0, "0")
         self._entry_limit.grid(row=2, column=3, sticky="w")
         self._lbl_limit_hint = ttk.Label(exp, text="(0=all)")
-        self._lbl_limit_hint._i18n_key = "label_limit_hint"
+        self._lbl_limit_hint._lang_key = "label_limit_hint"
         self._lbl_limit_hint.grid(row=2, column=4, sticky="w", padx=(3, 0))
 
         self._lbl_cols = ttk.Label(exp, text="Columns:")
-        self._lbl_cols._i18n_key = "label_selected_cols"
+        self._lbl_cols._lang_key = "label_selected_cols"
         self._lbl_cols.grid(row=3, column=0, sticky="e", padx=(0, 5), pady=(5, 0))
         self._lbl_col_count = ttk.Label(exp, text="")
         self._lbl_col_count.grid(row=3, column=1, sticky="w", pady=(5, 0))
         self._btn_cols = ttk.Button(exp, text="Select Columns...", command=self._open_col_select)
-        self._btn_cols._i18n_key = "btn_select_cols"
+        self._btn_cols._lang_key = "btn_select_cols"
         self._btn_cols.grid(row=3, column=2, padx=(15, 0), pady=(5, 0))
-
-        self._steamspy_var = tk.BooleanVar(value=True)
-        self._chk_spy = ttk.Checkbutton(
-            exp, text="Include SteamSpy data",
-            variable=self._steamspy_var,
-        )
-        self._chk_spy._i18n_key = "chk_steamspy"
-        self._chk_spy.grid(row=4, column=1, columnspan=2, sticky="w", pady=(5, 0))
 
         exp.columnconfigure(1, weight=1)
         exp.columnconfigure(3, weight=1)
@@ -630,12 +651,12 @@ class SteamExportGUI:
         prog_frame.pack(fill="x", pady=(2, 5))
 
         self._prog_label = ttk.Label(prog_frame, text="Progress:")
-        self._prog_label._i18n_key = "label_progress"
+        self._prog_label._lang_key = "label_progress"
         self._prog_label.pack(side="left")
         self._progress = ttk.Progressbar(prog_frame, orient="horizontal", mode="determinate")
         self._progress.pack(side="left", fill="x", expand=True, padx=(5, 10))
         self._lbl_eta = ttk.Label(prog_frame, text="ETA: --")
-        self._lbl_eta._i18n_key = "label_eta"
+        self._lbl_eta._lang_key = "label_eta"
         self._lbl_eta.pack(side="right")
 
         # ── Buttons ──
@@ -643,20 +664,26 @@ class SteamExportGUI:
         btn_frame.pack(fill="x", pady=(0, 5))
 
         self._btn_start = ttk.Button(btn_frame, text="▶ Start Export", command=self._start_export)
-        self._btn_start._i18n_key = "btn_start"
+        self._btn_start._lang_key = "btn_start"
         self._btn_start.pack(side="left", padx=(0, 5))
 
         self._btn_cancel = ttk.Button(btn_frame, text="■ Cancel", command=self._cancel_export, state="disabled")
-        self._btn_cancel._i18n_key = "btn_cancel"
+        self._btn_cancel._lang_key = "btn_cancel"
         self._btn_cancel.pack(side="left", padx=(0, 5))
 
         self._btn_open = ttk.Button(btn_frame, text="Open File Location", command=self._open_file_location)
-        self._btn_open._i18n_key = "btn_open_file"
+        self._btn_open._lang_key = "btn_open_file"
         self._btn_open.pack(side="left")
 
         self._btn_clear = ttk.Button(btn_frame, text="Clear Log", command=self._clear_log)
-        self._btn_clear._i18n_key = "btn_clear_log"
+        self._btn_clear._lang_key = "btn_clear_log"
         self._btn_clear.pack(side="right")
+
+        self._btn_settings = ttk.Button(
+            btn_frame, text="Settings", command=self._open_settings,
+        )
+        self._btn_settings._lang_key = "btn_settings"
+        self._btn_settings.pack(side="right", padx=(0, 8))
 
         # ── Log area ──
         log_frame = ttk.Frame(main)
@@ -679,14 +706,6 @@ class SteamExportGUI:
 
     def _load_env(self):
         self.env_data = EnvManager.load()
-        self._entry_key.configure(state="normal")
-        self._entry_key.delete(0, "end")
-        self._entry_key.insert(0, self.env_data.get("STEAM_API_KEY", ""))
-        self._entry_key.configure(state="readonly")
-        self._entry_sid.configure(state="normal")
-        self._entry_sid.delete(0, "end")
-        self._entry_sid.insert(0, self.env_data.get("STEAM_ID", ""))
-        self._entry_sid.configure(state="readonly")
 
         sel_str = self.env_data.get("SELECTED_COLUMNS", "")
         if sel_str:
@@ -696,9 +715,9 @@ class SteamExportGUI:
         else:
             self.selected_columns = set(ALL_COLUMNS)
 
-        lang = self.env_data.get("LANGUAGE", "zh")
-        if lang != self.i18n.lang:
-            self.i18n.lang = lang
+        lang = self.env_data.get("LANGUAGE", "zh_cn")
+        if lang != self.lang.lang:
+            self.lang.lang = lang
             self._apply_language()
 
         theme = self.env_data.get("THEME", "clam")
@@ -716,10 +735,10 @@ class SteamExportGUI:
     # ── Dialogs ──────────────────────────────────────────────────────
 
     def _open_settings(self):
-        SettingsDialog(self.root, self.i18n, self.env_data)
+        SettingsDialog(self.root, self.lang, self.env_data, self)
 
     def _open_col_select(self):
-        dlg = ColumnSelectDialog(self.root, self.i18n, self.selected_columns)
+        dlg = ColumnSelectDialog(self.root, self.lang, self.selected_columns)
         self.root.wait_window(dlg)
         if dlg.result is not None:
             self.selected_columns = dlg.result
@@ -755,7 +774,7 @@ class SteamExportGUI:
         total = len(ALL_COLUMNS)
         sel = len(self.selected_columns)
         self._lbl_col_count.configure(
-            text=self.i18n.t("label_total_selected").replace("{}/{}", f"{sel}/{total}")
+            text=self.lang.t("label_total_selected").replace("{}/{}", f"{sel}/{total}")
         )
 
     # ── Export ───────────────────────────────────────────────────────
@@ -766,8 +785,8 @@ class SteamExportGUI:
 
         if not api_key or not steam_id:
             messagebox.showwarning(
-                self.i18n.t("window_title"),
-                self.i18n.t("msg_validation_fail"),
+                self.lang.t("window_title"),
+                self.lang.t("msg_validation_fail"),
             )
             return
 
@@ -789,7 +808,8 @@ class SteamExportGUI:
             "sort_secondary": sort2 if sort2 != "none" else None,
             "min_playtime": float(self._entry_min.get() or 0),
             "limit": int(self._entry_limit.get() or 0),
-            "no_steamspy": not self._steamspy_var.get(),
+            "no_steamspy": not bool(STEAMSPY_COLUMNS & self.selected_columns),
+            "lang": self.lang.lang,
         }
 
         self._cancel_event.clear()
@@ -828,41 +848,41 @@ class SteamExportGUI:
         if not self._export_running:
             return
         ok = messagebox.askyesno(
-            self.i18n.t("window_title"),
-            self.i18n.t("msg_confirm_cancel"),
+            self.lang.t("window_title"),
+            self.lang.t("msg_confirm_cancel"),
         )
         if ok:
             self._cancel_event.set()
-            self._log_safe("[取消] 正在停止...")
+            self._log_safe(self.lang.t("log_cancelling"))
 
     def _on_export_done(self, output_path: str):
         self._export_running = False
         self._set_controls_state("normal")
         self._progress["value"] = 100
-        self._lbl_eta.configure(text="ETA: --")
+        self._lbl_eta.configure(text=f"{self.lang.t('label_eta')} --")
         self._btn_cancel.configure(state="disabled")
 
-        msg = self.i18n.t("msg_export_done")
-        messagebox.showinfo(self.i18n.t("window_title"), f"{msg} -> {output_path}")
+        msg = self.lang.t("msg_export_done")
+        messagebox.showinfo(self.lang.t("window_title"), f"{msg} -> {output_path}")
         self._log_safe(f"\n{'=' * 50}")
         self._log_safe(f" {msg}")
-        self._log_safe(f" 文件: {output_path}")
+        self._log_safe(self.lang.t("log_file_saved").replace("{}", output_path))
         self._log_safe(f"{'=' * 50}")
 
     def _on_export_cancelled(self):
         self._export_running = False
         self._set_controls_state("normal")
         self._btn_cancel.configure(state="disabled")
-        self._lbl_eta.configure(text="ETA: --")
-        self._log_safe("[取消] 用户中断导出")
+        self._lbl_eta.configure(text=f"{self.lang.t('label_eta')} --")
+        self._log_safe(self.lang.t("log_cancelled"))
 
     def _on_export_error(self, error_msg: str):
         self._export_running = False
         self._set_controls_state("normal")
         self._btn_cancel.configure(state="disabled")
-        self._lbl_eta.configure(text="ETA: --")
+        self._lbl_eta.configure(text=f"{self.lang.t('label_eta')} --")
         self._log_safe(f"[ERROR] {error_msg}")
-        messagebox.showerror(self.i18n.t("window_title"), error_msg)
+        messagebox.showerror(self.lang.t("window_title"), error_msg)
 
     def _set_controls_state(self, state: str):
         controls = [
@@ -908,7 +928,7 @@ class SteamExportGUI:
         if total > 0:
             self._progress["maximum"] = total
             self._progress["value"] = current
-        self._lbl_eta.configure(text=f"ETA: {eta}")
+        self._lbl_eta.configure(text=f"{self.lang.t('label_eta')} {eta}")
 
     def _clear_log(self):
         self._log_text.configure(state="normal")
@@ -928,25 +948,25 @@ class SteamExportGUI:
                 import subprocess
                 subprocess.run(["open" if sys.platform == "darwin" else "xdg-open", str(target)])
         except Exception as e:
-            self._append_log(f"[ERROR] 无法打开文件位置: {e}")
+            self._append_log(self.lang.t("log_file_location_error").replace("{}", str(e)))
 
     # ── Language ─────────────────────────────────────────────────────
 
     def _apply_language(self):
-        i = self.i18n
+        i = self.lang
         self.root.title(i.t("window_title"))
         self._apply_lang_widget(self.root, i)
         self._update_col_count()
 
     def _apply_lang_widget(self, widget, i):
-        key = getattr(widget, "_i18n_key", None)
+        key = getattr(widget, "_lang_key", None)
         if key:
             try:
                 widget.configure(text=i.t(key))
             except tk.TclError:
                 pass
         if isinstance(widget, ttk.LabelFrame):
-            sk = getattr(widget, "_i18n_key", None)
+            sk = getattr(widget, "_lang_key", None)
             if sk:
                 widget.configure(text=i.t(sk))
         for child in widget.winfo_children():
