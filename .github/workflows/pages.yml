@@ -30,7 +30,7 @@ jobs:
       - name: Build i18n JSON
         run: python scripts/build_i18n_json.py
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
         with:
           enablement: true
 
